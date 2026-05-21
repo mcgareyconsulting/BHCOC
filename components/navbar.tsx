@@ -41,7 +41,7 @@ export function Navbar() {
           </span>
           <span className="leading-tight">
             <span className="block font-display text-lg font-semibold">BHCOC</span>
-            <span className="block text-[11px] tracking-wider uppercase text-ink/60">
+            <span className="hidden sm:block text-[11px] tracking-wider uppercase text-ink/60">
               Black History Committee · Orange County
             </span>
           </span>

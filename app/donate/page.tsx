@@ -32,10 +32,10 @@ export default function DonatePage() {
         subtitle="Tickets to our annual Scholarship Awards & Juneteenth Celebration Gala directly fund scholarships and community programs. Every ticket is a donation to a 501(c)(3) nonprofit."
       />
 
-      <section className="mx-auto max-w-6xl px-6 py-24">
-        <div className="grid md:grid-cols-[1.3fr_1fr] gap-8 items-stretch">
+      <section className="mx-auto max-w-6xl px-6 py-16 md:py-24">
+        <div className="grid md:grid-cols-[1.3fr_1fr] gap-6 md:gap-8 items-stretch">
           {/* Ticket card */}
-          <article className="relative rounded-3xl bg-ink text-cream p-10 md:p-12 overflow-hidden shadow-lift">
+          <article className="relative rounded-3xl bg-ink text-cream p-7 sm:p-10 md:p-12 overflow-hidden shadow-lift">
             <div
               className="absolute -right-24 -top-24 h-80 w-80 rounded-full opacity-40"
               style={{
@@ -46,7 +46,7 @@ export default function DonatePage() {
             />
             <div className="relative">
               <span className="eyebrow text-gold">Gala ticket</span>
-              <h2 className="mt-4 font-display text-3xl md:text-4xl leading-tight">
+              <h2 className="mt-4 font-display text-2xl sm:text-3xl md:text-4xl leading-tight">
                 {EVENT_NAME}
               </h2>
               <dl className="mt-6 grid sm:grid-cols-2 gap-5 text-sm">
@@ -118,7 +118,7 @@ export default function DonatePage() {
           </article>
 
           {/* Donate card */}
-          <article className="rounded-3xl bg-cream border border-ink/10 p-8 md:p-10 flex flex-col">
+          <article className="rounded-3xl bg-cream border border-ink/10 p-6 sm:p-8 md:p-10 flex flex-col">
             <span className="eyebrow text-clay">Or give directly</span>
             <h3 className="mt-3 font-display text-2xl leading-snug">
               Donate any amount to BHCOC.

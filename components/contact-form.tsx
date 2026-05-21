@@ -55,7 +55,7 @@ export function ContactForm() {
   return (
     <form
       onSubmit={onSubmit}
-      className="relative rounded-3xl border border-ink/10 bg-cream p-8 md:p-10 grid gap-5 shadow-soft"
+      className="relative rounded-3xl border border-ink/10 bg-cream p-6 sm:p-8 md:p-10 grid gap-5 shadow-soft"
       noValidate
     >
       <div className="absolute -top-3 left-8 inline-flex items-center gap-2 bg-clay text-cream text-[10px] uppercase tracking-[0.25em] px-3 py-1 rounded-full">

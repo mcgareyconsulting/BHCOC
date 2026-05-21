@@ -38,12 +38,12 @@ export default function HomePage() {
           aria-hidden
         />
 
-        <div className="mx-auto max-w-7xl px-6 lg:px-12 pt-28 pb-32 md:pt-40 md:pb-40 text-cream relative">
+        <div className="mx-auto max-w-7xl px-6 lg:px-12 pt-20 pb-24 sm:pt-28 sm:pb-32 md:pt-40 md:pb-40 text-cream relative">
           <div className="reveal lg:pr-[24rem]">
             <span className="eyebrow text-gold">
               Est. 2002 · Orlando, Florida
             </span>
-            <h1 className="mt-6 font-display text-5xl md:text-7xl leading-[0.98] max-w-4xl lg:max-w-none">
+            <h1 className="mt-5 sm:mt-6 font-display text-4xl sm:text-5xl md:text-7xl leading-[1.02] sm:leading-[0.98] max-w-4xl lg:max-w-none">
               Celebrating, preserving,
               <br />
               and teaching{" "}
@@ -58,12 +58,12 @@ export default function HomePage() {
               </span>{" "}
               history.
             </h1>
-            <p className="mt-8 max-w-2xl text-lg md:text-xl text-cream/80 leading-relaxed">
+            <p className="mt-6 sm:mt-8 max-w-2xl text-base sm:text-lg md:text-xl text-cream/80 leading-relaxed">
               A volunteer-led 501(c)(3) nonprofit funding scholarships, hosting
               community events, and bringing the stories of Black history to
               schools, families, and neighborhoods across Central Florida.
             </p>
-            <div className="mt-12 flex flex-wrap gap-4 items-center">
+            <div className="mt-9 sm:mt-12 flex flex-wrap gap-3 sm:gap-4 items-center">
               <Link
                 href="/events"
                 className="group inline-flex items-center gap-3 rounded-full bg-gold px-7 py-3.5 text-ink font-medium hover:bg-gold-light transition shadow-lift"
@@ -188,7 +188,7 @@ export default function HomePage() {
       </section>
 
       {/* MISSION */}
-      <section className="mx-auto max-w-6xl px-6 py-28 grid gap-14 md:grid-cols-[1fr_1.3fr] items-start">
+      <section className="mx-auto max-w-6xl px-6 py-16 md:py-28 grid gap-10 md:gap-14 md:grid-cols-[1fr_1.3fr] items-start">
         <div>
           <span className="eyebrow text-clay">Our Mission</span>
           <h2 className="mt-4 font-display text-4xl md:text-5xl leading-tight">
@@ -229,7 +229,7 @@ export default function HomePage() {
       </section>
 
       {/* PROGRAMS */}
-      <section className="mx-auto max-w-6xl px-6 py-28">
+      <section className="mx-auto max-w-6xl px-6 py-16 md:py-28">
         <div className="max-w-2xl">
           <span className="eyebrow text-clay">What we do</span>
           <h2 className="mt-4 font-display text-4xl md:text-5xl leading-tight">
@@ -294,9 +294,9 @@ export default function HomePage() {
           }}
           aria-hidden
         />
-        <div className="mx-auto max-w-4xl px-6 py-24 text-center relative">
+        <div className="mx-auto max-w-4xl px-6 py-16 md:py-24 text-center relative">
           <Ornament className="mx-auto" color="#C9A14A" />
-          <blockquote className="mt-6 font-display text-2xl md:text-4xl leading-snug italic">
+          <blockquote className="mt-6 font-display text-xl sm:text-2xl md:text-4xl leading-snug italic">
             “Black history is American history — and it deserves to be told,
             taught, and celebrated all year long.”
           </blockquote>
@@ -305,8 +305,8 @@ export default function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="mx-auto max-w-6xl px-6 py-28">
-        <div className="rounded-[2rem] bg-ink text-cream p-10 md:p-16 relative overflow-hidden">
+      <section className="mx-auto max-w-6xl px-6 py-16 md:py-28">
+        <div className="rounded-3xl md:rounded-[2rem] bg-ink text-cream p-7 sm:p-10 md:p-16 relative overflow-hidden">
           <div
             className="absolute -right-32 -top-32 h-96 w-96 rounded-full"
             style={{
@@ -417,13 +417,13 @@ function CalendarOfEvents() {
 
   return (
     <section className="bg-paper/60 border-y border-ink/10">
-      <div className="mx-auto max-w-6xl px-6 py-24 space-y-16">
+      <div className="mx-auto max-w-6xl px-6 py-16 md:py-24 space-y-12 md:space-y-16">
         {/* Upcoming */}
         <div>
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8 md:mb-10">
             <div>
               <span className="eyebrow text-clay">Calendar of Events</span>
-              <h2 className="mt-4 font-display text-4xl md:text-5xl leading-tight">
+              <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl leading-tight">
                 Upcoming
               </h2>
             </div>

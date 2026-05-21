@@ -111,7 +111,7 @@ function FeaturedGalaCard({ event }: { event: Event }) {
         aria-hidden
       />
 
-      <div className="relative grid lg:grid-cols-[1fr_360px] gap-8 lg:gap-10 p-6 md:p-10">
+      <div className="relative grid lg:grid-cols-[1fr_360px] gap-8 lg:gap-10 p-5 sm:p-6 md:p-10">
         {/* Left: details */}
         <div>
           <div className="flex items-center gap-3">
@@ -121,7 +121,7 @@ function FeaturedGalaCard({ event }: { event: Event }) {
             </span>
           </div>
 
-          <h3 className="mt-5 font-display text-3xl md:text-4xl leading-tight">
+          <h3 className="mt-5 font-display text-2xl sm:text-3xl md:text-4xl leading-tight">
             {event.title}
           </h3>
 
@@ -211,7 +211,7 @@ function FeaturedGalaCard({ event }: { event: Event }) {
         </div>
 
         {/* Right: flyer */}
-        <div className="relative w-full max-w-[360px] mx-auto lg:mx-0">
+        <div className="relative w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px] mx-auto lg:mx-0">
           <div className="relative rotate-[1.5deg] rounded-2xl overflow-hidden shadow-lift ring-1 ring-gold/30">
             <Image
               src="/events/gala-2026-flyer.png"
@@ -255,7 +255,7 @@ export default function EventsPage() {
       />
 
       {/* Upcoming */}
-      <section className="mx-auto max-w-6xl px-6 py-24">
+      <section className="mx-auto max-w-6xl px-6 py-16 md:py-24">
         <div className="flex items-end justify-between mb-12">
           <h2 className="font-display text-3xl md:text-4xl">Upcoming</h2>
           <span className="text-sm text-ink/55">Save the dates</span>
@@ -330,7 +330,7 @@ export default function EventsPage() {
       {/* Past events */}
       {past.length > 0 && (
         <section className="bg-paper/60 border-y border-ink/10">
-          <div className="mx-auto max-w-6xl px-6 py-24">
+          <div className="mx-auto max-w-6xl px-6 py-16 md:py-24">
             <div className="flex items-end justify-between mb-10">
               <h2 className="font-display text-3xl md:text-4xl">Past events</h2>
               <span className="text-sm text-ink/55">Looking back</span>
@@ -360,7 +360,7 @@ export default function EventsPage() {
 
       {/* Year-round programs */}
       <section className="bg-cream">
-        <div className="mx-auto max-w-6xl px-6 py-24">
+        <div className="mx-auto max-w-6xl px-6 py-16 md:py-24">
           <h2 className="font-display text-3xl md:text-4xl">
             Year-round programs
           </h2>

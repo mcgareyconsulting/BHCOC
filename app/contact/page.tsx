@@ -12,7 +12,7 @@ export default function ContactPage() {
         subtitle="Questions about events, sponsorship, scholarships, or volunteering? Reach out — we'd love to hear from you."
       />
 
-      <section className="mx-auto max-w-6xl px-6 py-24 grid lg:grid-cols-[1fr_1.3fr] gap-12">
+      <section className="mx-auto max-w-6xl px-6 py-16 md:py-24 grid lg:grid-cols-[1fr_1.3fr] gap-10 lg:gap-12">
         {/* Contact details */}
         <div className="space-y-8">
           <div className="rounded-3xl border border-gold/30 bg-gold/[0.06] p-7">

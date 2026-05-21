@@ -27,17 +27,17 @@ export function PageHeader({
         }}
         aria-hidden
       />
-      <div className="mx-auto max-w-6xl px-6 py-24 md:py-32 reveal">
+      <div className="mx-auto max-w-6xl px-6 py-16 sm:py-24 md:py-32 reveal">
         {eyebrow && <span className="eyebrow text-gold">{eyebrow}</span>}
-        <h1 className="mt-5 font-display text-5xl md:text-6xl leading-[1.02] max-w-3xl">
+        <h1 className="mt-4 sm:mt-5 font-display text-4xl sm:text-5xl md:text-6xl leading-[1.05] sm:leading-[1.02] max-w-3xl">
           {title}
         </h1>
         {subtitle && (
-          <p className="mt-6 max-w-2xl text-cream/75 text-lg md:text-xl leading-relaxed">
+          <p className="mt-5 sm:mt-6 max-w-2xl text-cream/75 text-base sm:text-lg md:text-xl leading-relaxed">
             {subtitle}
           </p>
         )}
-        <Ornament className="mt-8" color="#C9A14A" />
+        <Ornament className="mt-7 sm:mt-8" color="#C9A14A" />
       </div>
       <svg
         className="absolute -bottom-px left-0 right-0 w-full h-10 text-cream"
