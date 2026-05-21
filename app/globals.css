@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-cream text-ink antialiased;
+  font-feature-settings: "ss01", "kern";
+}
+
+h1, h2, h3, h4 {
+  @apply font-display tracking-tight;
+}
+
+.kente-bar {
+  height: 6px;
+  background: repeating-linear-gradient(
+    90deg,
+    #1F3D2B 0 24px,
+    #C9A14A 24px 48px,
+    #A0301E 48px 72px,
+    #0B0B0C 72px 96px
+  );
+}
+
+.gold-underline {
+  background-image: linear-gradient(90deg, #C9A14A, #C9A14A);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 3px;
+  padding-bottom: 2px;
+}
