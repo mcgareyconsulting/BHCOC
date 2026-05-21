@@ -3,36 +3,73 @@ import Link from "next/link";
 
 export const metadata = { title: "Events | BHCOC" };
 
-const upcoming = [
+type Event = {
+  title: string;
+  month: string;
+  day: string;
+  year: string;
+  // ISO date used to determine upcoming vs. past. For ranges, use the END date.
+  endDate: string;
+  location: string;
+  accent: string;
+};
+
+const events: Event[] = [
   {
-    title: "Black History Month Gala",
-    month: "Feb",
-    day: "TBD",
+    title: "Black History Month Proclamation",
+    month: "Jan",
+    day: "27",
     year: "2026",
-    location: "Rosen Centre Orlando · 9840 International Dr",
-    description:
-      "Our signature annual evening of celebration, scholarship awards, and tribute to Central Florida changemakers.",
+    endDate: "2026-01-27",
+    location: "Orange County Administration Center",
     accent: "from-clay/30 to-transparent"
   },
   {
-    title: "Festival on the Lawn",
-    month: "Spr",
-    day: "—",
+    title: "Art Exhibit by Nasanee",
+    month: "Feb",
+    day: "1 – Mar 1",
     year: "2026",
-    location: "Downtown Orlando",
-    description:
-      "A free community festival featuring music, food, art, and storytelling — celebrating African American heritage for all ages.",
+    endDate: "2026-03-01",
+    location: "Orange County Administration Center",
+    accent: "from-gold/40 to-transparent"
+  },
+  {
+    title:
+      "Storytelling Hour — The BHCOC reads to students of Rosemont Elementary School",
+    month: "Feb",
+    day: "12",
+    year: "2026",
+    endDate: "2026-02-12",
+    location: "Orlando, FL",
     accent: "from-forest/30 to-transparent"
   },
   {
-    title: "Scholarship Awards Ceremony",
-    month: "Sum",
-    day: "—",
+    title: "Artist Reception",
+    month: "Feb",
+    day: "13",
     year: "2026",
-    location: "TBA · Orange County",
-    description:
-      "Honoring this year's scholarship recipients as they head to HBCUs and Florida universities.",
+    endDate: "2026-02-13",
+    location: "Orange County Administration Center",
+    accent: "from-clay/30 to-transparent"
+  },
+  {
+    title: "31st Annual Black History Month Festival and Lunch on the Lawn",
+    month: "Feb",
+    day: "20",
+    year: "2026",
+    endDate: "2026-02-20",
+    location: "Orange County Administration Center",
     accent: "from-gold/40 to-transparent"
+  },
+  {
+    title:
+      "22nd Black History Scholarship Awards and Juneteenth Celebration Gala",
+    month: "Jun",
+    day: "27",
+    year: "2026",
+    endDate: "2026-06-27",
+    location: "Rosen Centre Hotel · 9840 International Drive, Orlando, FL 32819",
+    accent: "from-clay/30 to-transparent"
   }
 ];
 
@@ -51,7 +88,23 @@ const ongoing = [
   }
 ];
 
+function partitionByDate(list: Event[]) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const upcoming: Event[] = [];
+  const past: Event[] = [];
+  for (const e of list) {
+    if (new Date(e.endDate) >= today) upcoming.push(e);
+    else past.push(e);
+  }
+  upcoming.sort((a, b) => a.endDate.localeCompare(b.endDate));
+  past.sort((a, b) => b.endDate.localeCompare(a.endDate));
+  return { upcoming, past };
+}
+
 export default function EventsPage() {
+  const { upcoming, past } = partitionByDate(events);
+
   return (
     <>
       <PageHeader
@@ -67,45 +120,48 @@ export default function EventsPage() {
           <span className="text-sm text-ink/55">Save the dates</span>
         </div>
 
-        <div className="grid gap-6">
-          {upcoming.map((e) => (
-            <article
-              key={e.title}
-              className={`card-hover relative rounded-3xl border border-ink/10 bg-gradient-to-br ${e.accent} bg-cream p-6 md:p-8 grid md:grid-cols-[160px_1fr_auto] gap-6 items-center`}
-            >
-              {/* Date block */}
-              <div className="flex md:flex-col items-center md:items-start gap-4">
-                <div className="bg-ink text-cream rounded-2xl px-5 py-4 text-center md:w-full">
-                  <div className="text-[10px] uppercase tracking-[0.25em] text-gold">
-                    {e.month}
-                  </div>
-                  <div className="font-display text-3xl mt-1">{e.day}</div>
-                  <div className="text-xs text-cream/60 mt-0.5">{e.year}</div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-display text-2xl md:text-3xl leading-tight">
-                  {e.title}
-                </h3>
-                <p className="mt-1 text-sm text-ink/55 flex items-center gap-2">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" />
-                  {e.location}
-                </p>
-                <p className="mt-4 text-ink/80 leading-relaxed max-w-2xl">
-                  {e.description}
-                </p>
-              </div>
-
-              <Link
-                href="/contact"
-                className="self-start md:self-center inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3 text-cream text-sm hover:bg-clay transition whitespace-nowrap"
+        {upcoming.length === 0 ? (
+          <p className="text-ink/60">
+            No upcoming events on the calendar right now — check back soon.
+          </p>
+        ) : (
+          <div className="grid gap-6">
+            {upcoming.map((e) => (
+              <article
+                key={e.title}
+                className={`card-hover relative rounded-3xl border border-ink/10 bg-gradient-to-br ${e.accent} bg-cream p-6 md:p-8 grid md:grid-cols-[160px_1fr_auto] gap-6 items-center`}
               >
-                Inquire →
-              </Link>
-            </article>
-          ))}
-        </div>
+                {/* Date block */}
+                <div className="flex md:flex-col items-center md:items-start gap-4">
+                  <div className="bg-ink text-cream rounded-2xl px-5 py-4 text-center md:w-full">
+                    <div className="text-[10px] uppercase tracking-[0.25em] text-gold">
+                      {e.month}
+                    </div>
+                    <div className="font-display text-3xl mt-1">{e.day}</div>
+                    <div className="text-xs text-cream/60 mt-0.5">{e.year}</div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-display text-2xl md:text-3xl leading-tight">
+                    {e.title}
+                  </h3>
+                  <p className="mt-2 text-sm text-ink/55 flex items-center gap-2">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" />
+                    {e.location}
+                  </p>
+                </div>
+
+                <Link
+                  href="/contact"
+                  className="self-start md:self-center inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3 text-cream text-sm hover:bg-clay transition whitespace-nowrap"
+                >
+                  Inquire →
+                </Link>
+              </article>
+            ))}
+          </div>
+        )}
 
         {/* Sponsor banner */}
         <div className="mt-16 rounded-3xl border border-gold/30 bg-gold/[0.08] p-7 md:p-9 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
@@ -126,8 +182,39 @@ export default function EventsPage() {
         </div>
       </section>
 
+      {/* Past events */}
+      {past.length > 0 && (
+        <section className="bg-paper/60 border-y border-ink/10">
+          <div className="mx-auto max-w-6xl px-6 py-24">
+            <div className="flex items-end justify-between mb-10">
+              <h2 className="font-display text-3xl md:text-4xl">Past events</h2>
+              <span className="text-sm text-ink/55">Looking back</span>
+            </div>
+
+            <ul className="divide-y divide-ink/10 border-y border-ink/10">
+              {past.map((e) => (
+                <li
+                  key={e.title}
+                  className="grid md:grid-cols-[140px_1fr_auto] gap-2 md:gap-8 py-5 items-baseline"
+                >
+                  <div className="text-sm font-medium text-ink/70">
+                    {e.month} {e.day}, {e.year}
+                  </div>
+                  <div className="font-display text-lg md:text-xl leading-snug text-ink/85">
+                    {e.title}
+                  </div>
+                  <div className="text-sm text-ink/55 md:text-right">
+                    {e.location}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
       {/* Year-round programs */}
-      <section className="bg-paper/60 border-y border-ink/10">
+      <section className="bg-cream">
         <div className="mx-auto max-w-6xl px-6 py-24">
           <h2 className="font-display text-3xl md:text-4xl">
             Year-round programs

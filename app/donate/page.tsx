@@ -3,129 +3,41 @@ import Link from "next/link";
 
 export const metadata = { title: "Donate | BHCOC" };
 
-const tiers = [
-  {
-    amount: "$25",
-    name: "Storyteller",
-    perks: "Funds books and supplies for Head Start storytelling sessions."
-  },
-  {
-    amount: "$100",
-    name: "Friend",
-    perks: "Supports community events and outreach throughout the year."
-  },
-  {
-    amount: "$500",
-    name: "Patron",
-    perks: "Helps fund a student scholarship for an HBCU or Florida university.",
-    featured: true
-  },
-  {
-    amount: "$1,000+",
-    name: "Legacy",
-    perks: "Named recognition and lasting impact across multiple programs."
-  }
-];
+const PAYPAL_BUSINESS = "bhcocinc@gmail.com";
+const EVENT_NAME =
+  "22nd Black History Scholarship Awards & Juneteenth Celebration Gala";
+const TICKET_PRICE = 100;
+
+const ticketUrl = `https://www.paypal.com/cgi-bin/webscr?${new URLSearchParams({
+  cmd: "_xclick",
+  business: PAYPAL_BUSINESS,
+  item_name: `${EVENT_NAME} — Ticket`,
+  amount: TICKET_PRICE.toString(),
+  currency_code: "USD",
+  no_shipping: "1"
+}).toString()}`;
+
+const donateUrl = `https://www.paypal.com/donate?${new URLSearchParams({
+  business: PAYPAL_BUSINESS,
+  item_name: "Black History Committee of Orange County",
+  currency_code: "USD"
+}).toString()}`;
 
 export default function DonatePage() {
   return (
     <>
       <PageHeader
         eyebrow="Support BHCOC"
-        title="Your gift powers scholarships, programs, and remembrance."
-        subtitle="The Black History Committee of Orange County is a 501(c)(3) nonprofit. Every dollar is tax-deductible and goes directly toward our mission."
+        title="Reserve your seat at the 2026 Gala."
+        subtitle="Tickets to our annual Scholarship Awards & Juneteenth Celebration Gala directly fund scholarships and community programs. Every ticket is a donation to a 501(c)(3) nonprofit."
       />
 
       <section className="mx-auto max-w-6xl px-6 py-24">
-        {/* Impact strip */}
-        <div className="grid sm:grid-cols-3 gap-4 mb-14">
-          {[
-            { v: "$25", k: "buys storytelling books" },
-            { v: "$100", k: "powers a community event" },
-            { v: "$500", k: "supports one scholar" }
-          ].map((s) => (
+        <div className="grid md:grid-cols-[1.3fr_1fr] gap-8 items-stretch">
+          {/* Ticket card */}
+          <article className="relative rounded-3xl bg-ink text-cream p-10 md:p-12 overflow-hidden shadow-lift">
             <div
-              key={s.v}
-              className="rounded-2xl border border-ink/10 bg-paper/50 px-5 py-4"
-            >
-              <div className="font-display text-2xl text-clay">{s.v}</div>
-              <div className="text-sm text-ink/65">{s.k}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Tiers */}
-        <div className="grid md:grid-cols-4 gap-5">
-          {tiers.map((t) => (
-            <article
-              key={t.amount}
-              className={`relative rounded-3xl p-7 border transition ${
-                t.featured
-                  ? "bg-ink text-cream border-ink shadow-lift md:scale-[1.04]"
-                  : "bg-cream border-ink/10 card-hover"
-              }`}
-            >
-              {t.featured && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 bg-gold text-ink text-[10px] uppercase tracking-[0.25em] px-3 py-1 rounded-full">
-                  ★ Most loved
-                </span>
-              )}
-              <div
-                className={`text-xs uppercase tracking-[0.25em] ${
-                  t.featured ? "text-gold" : "text-clay"
-                }`}
-              >
-                {t.name}
-              </div>
-              <div className="mt-3 font-display text-4xl">{t.amount}</div>
-              <div
-                className={`mt-3 h-px ${
-                  t.featured ? "bg-cream/15" : "bg-ink/10"
-                }`}
-              />
-              <p
-                className={`mt-4 text-sm leading-relaxed ${
-                  t.featured ? "text-cream/85" : "text-ink/75"
-                }`}
-              >
-                {t.perks}
-              </p>
-              <button
-                disabled
-                className={`mt-6 w-full rounded-full py-2.5 text-sm font-medium transition ${
-                  t.featured
-                    ? "bg-gold text-ink hover:bg-gold-light"
-                    : "bg-ink text-cream hover:bg-clay"
-                }`}
-              >
-                Give {t.amount}
-              </button>
-            </article>
-          ))}
-        </div>
-
-        {/* Other ways + tax */}
-        <div className="mt-20 grid md:grid-cols-2 gap-8">
-          <div className="rounded-3xl border border-ink/10 p-8 bg-cream">
-            <span className="eyebrow text-clay">More ways to give</span>
-            <h3 className="mt-3 font-display text-2xl">Other ways to give</h3>
-            <ul className="mt-5 space-y-3 text-ink/80">
-              {[
-                "Mail a check, payable to BHCOC, Inc.",
-                "Sponsor a scholarship or named award",
-                "Become an event sponsor or underwriter",
-                "Donate stock, in-kind goods, or planned gifts"
-              ].map((line) => (
-                <li key={line} className="flex gap-3">
-                  <span className="mt-1.5 inline-block h-1.5 w-1.5 rounded-full bg-gold flex-shrink-0" />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="rounded-3xl bg-clay text-cream p-8 relative overflow-hidden">
-            <div
-              className="absolute -right-16 -bottom-16 h-56 w-56 rounded-full opacity-40"
+              className="absolute -right-24 -top-24 h-80 w-80 rounded-full opacity-40"
               style={{
                 background:
                   "radial-gradient(circle, #C9A14A 0%, transparent 70%)"
@@ -133,21 +45,110 @@ export default function DonatePage() {
               aria-hidden
             />
             <div className="relative">
-              <span className="eyebrow text-gold">501(c)(3)</span>
-              <h3 className="mt-3 font-display text-2xl">Tax-deductible</h3>
-              <p className="mt-3 text-cream/90 leading-relaxed">
-                BHCOC is a registered 501(c)(3) nonprofit organization. Your
-                contribution may be tax-deductible to the fullest extent allowed
-                by law. We&apos;ll send a receipt for every gift.
-              </p>
-              <Link
-                href="/contact"
-                className="mt-6 inline-flex items-center gap-2 rounded-full bg-cream text-clay px-6 py-3 font-medium hover:bg-gold hover:text-ink transition"
+              <span className="eyebrow text-gold">Gala ticket</span>
+              <h2 className="mt-4 font-display text-3xl md:text-4xl leading-tight">
+                {EVENT_NAME}
+              </h2>
+              <dl className="mt-6 grid sm:grid-cols-2 gap-5 text-sm">
+                <div>
+                  <dt className="text-[10px] uppercase tracking-[0.22em] text-cream/55">
+                    Date
+                  </dt>
+                  <dd className="mt-1 font-medium text-cream">
+                    Sat, June 27, 2026 · 6:00 PM EST
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] uppercase tracking-[0.22em] text-cream/55">
+                    Venue
+                  </dt>
+                  <dd className="mt-1 font-medium text-cream">
+                    Rosen Centre Hotel
+                  </dd>
+                  <dd className="text-cream/60 text-[13px] leading-snug">
+                    9840 International Drive, Orlando, FL 32819
+                  </dd>
+                </div>
+              </dl>
+
+              <div className="mt-8 h-px bg-cream/15" />
+
+              <div className="mt-8 flex flex-wrap items-end gap-x-6 gap-y-2">
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.22em] text-cream/55">
+                    Individual ticket
+                  </div>
+                  <div className="mt-1 font-display text-5xl text-gold">
+                    ${TICKET_PRICE}
+                  </div>
+                </div>
+                <div className="text-xs text-cream/60 pb-2">
+                  price includes tax
+                </div>
+              </div>
+
+              <a
+                href={ticketUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-8 inline-flex items-center gap-2 rounded-full bg-gold px-7 py-3.5 text-ink font-medium hover:bg-gold-light transition shadow-lift"
               >
-                Request giving info →
-              </Link>
+                Buy ticket with PayPal →
+              </a>
+
+              <p className="mt-5 text-sm text-cream/65 leading-relaxed">
+                Group and corporate packages are available. Contact Vernard
+                Batson at{" "}
+                <a
+                  href="tel:+14076681865"
+                  className="text-gold hover:text-gold-light"
+                >
+                  (407) 668-1865
+                </a>{" "}
+                or{" "}
+                <Link
+                  href="/contact"
+                  className="text-gold hover:text-gold-light"
+                >
+                  send us a message
+                </Link>
+                .
+              </p>
             </div>
-          </div>
+          </article>
+
+          {/* Donate card */}
+          <article className="rounded-3xl bg-cream border border-ink/10 p-8 md:p-10 flex flex-col">
+            <span className="eyebrow text-clay">Or give directly</span>
+            <h3 className="mt-3 font-display text-2xl leading-snug">
+              Donate any amount to BHCOC.
+            </h3>
+            <p className="mt-4 text-ink/75 leading-relaxed text-sm">
+              Prefer to give without a ticket? Make a tax-deductible
+              contribution in any amount. Funds go directly to scholarships,
+              community events, and education programs across Central Florida.
+            </p>
+
+            <a
+              href={donateUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-full bg-ink px-6 py-3 text-cream font-medium hover:bg-clay transition"
+            >
+              Donate with PayPal →
+            </a>
+
+            <div className="mt-8 pt-6 border-t border-ink/10 text-sm text-ink/70 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" />
+                <span>501(c)(3) — gifts are tax-deductible</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-clay" />
+                <span>Checks payable to BHCOC, Inc.</span>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
     </>

@@ -83,21 +83,43 @@ export default function HomePage() {
           </div>
 
           {/* floating accent card */}
-          <div className="hidden lg:block absolute right-8 top-32 w-72 rotate-[3deg] bg-cream text-ink p-5 rounded-2xl shadow-lift border border-gold/30">
-            <div className="text-[10px] uppercase tracking-[0.25em] text-clay">
-              Save the date
+          <div className="hidden lg:block absolute right-6 top-24 w-80 rotate-[2deg] bg-cream text-ink p-6 rounded-2xl shadow-lift border border-gold/30">
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-px w-6 bg-clay" aria-hidden />
+              <span className="text-[10px] uppercase tracking-[0.28em] text-clay font-medium">
+                Save the date
+              </span>
             </div>
-            <div className="mt-2 font-display text-2xl leading-tight">
-              Black History Month Gala
-            </div>
-            <div className="mt-2 text-sm text-ink/70">
-              February 2026 · Rosen Centre Orlando
-            </div>
+
+            <h3 className="mt-3 font-display text-xl leading-snug">
+              22nd Black History Scholarship Awards &amp; Juneteenth Celebration Gala
+            </h3>
+
             <div className="mt-4 h-px bg-ink/10" />
-            <div className="mt-3 text-xs text-ink/60">
-              Scholarships · Tribute · Community
-            </div>
+
+            <dl className="mt-4 space-y-3 text-sm">
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.22em] text-ink/45">
+                  Date
+                </dt>
+                <dd className="mt-0.5 font-medium text-ink">
+                  Sat, June 27, 2026 · 6:00 PM EST
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.22em] text-ink/45">
+                  Venue
+                </dt>
+                <dd className="mt-0.5 font-medium text-ink">Rosen Centre Hotel</dd>
+                <dd className="text-ink/65 text-[13px] leading-snug">
+                  9840 International Drive
+                  <br />
+                  Orlando, FL 32819
+                </dd>
+              </div>
+            </dl>
           </div>
+
         </div>
 
         {/* curve into next section */}
@@ -242,6 +264,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* CALENDAR OF EVENTS */}
+      <CalendarOfEvents />
+
       {/* QUOTE / PULL QUOTE */}
       <section className="bg-forest text-cream relative overflow-hidden">
         <div
@@ -311,5 +336,141 @@ export default function HomePage() {
         </div>
       </section>
     </>
+  );
+}
+
+type CalendarEntry = {
+  date: string;
+  endDate: string;
+  title: string;
+  location: string;
+};
+
+const calendarEntries: CalendarEntry[] = [
+  {
+    date: "January 27, 2026",
+    endDate: "2026-01-27",
+    title: "Black History Month Proclamation",
+    location: "Orange County Administration Center"
+  },
+  {
+    date: "February 1 – March 1, 2026",
+    endDate: "2026-03-01",
+    title: "Art Exhibit by Nasanee",
+    location: "Orange County Administration Center"
+  },
+  {
+    date: "February 12, 2026",
+    endDate: "2026-02-12",
+    title:
+      "Storytelling Hour — The BHCOC reads to students of Rosemont Elementary School",
+    location: "Orlando, FL"
+  },
+  {
+    date: "February 13, 2026",
+    endDate: "2026-02-13",
+    title: "Artist Reception",
+    location: "Orange County Administration Center"
+  },
+  {
+    date: "February 20, 2026",
+    endDate: "2026-02-20",
+    title:
+      "31st Annual Black History Month Festival and Lunch on the Lawn",
+    location: "Orange County Administration Center"
+  },
+  {
+    date: "June 27, 2026",
+    endDate: "2026-06-27",
+    title:
+      "22nd Black History Scholarship Awards and Juneteenth Celebration Gala",
+    location: "Rosen Centre Hotel"
+  }
+];
+
+function CalendarOfEvents() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const upcoming = calendarEntries
+    .filter((e) => new Date(e.endDate) >= today)
+    .sort((a, b) => a.endDate.localeCompare(b.endDate));
+  const past = calendarEntries
+    .filter((e) => new Date(e.endDate) < today)
+    .sort((a, b) => b.endDate.localeCompare(a.endDate));
+
+  return (
+    <section className="bg-paper/60 border-y border-ink/10">
+      <div className="mx-auto max-w-6xl px-6 py-24 space-y-16">
+        {/* Upcoming */}
+        <div>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+            <div>
+              <span className="eyebrow text-clay">Calendar of Events</span>
+              <h2 className="mt-4 font-display text-4xl md:text-5xl leading-tight">
+                Upcoming
+              </h2>
+            </div>
+            <Link
+              href="/events"
+              className="font-medium gold-underline self-start md:self-auto"
+            >
+              See all events →
+            </Link>
+          </div>
+
+          {upcoming.length === 0 ? (
+            <p className="text-ink/60">
+              No upcoming events on the calendar right now — check back soon.
+            </p>
+          ) : (
+            <ul className="divide-y divide-ink/10 border-y border-ink/10">
+              {upcoming.map((e) => (
+                <li
+                  key={`${e.endDate}-${e.title}`}
+                  className="grid md:grid-cols-[260px_1fr_auto] gap-2 md:gap-8 py-6 items-baseline"
+                >
+                  <div className="text-sm md:text-base font-medium text-clay">
+                    {e.date}
+                  </div>
+                  <div className="font-display text-xl md:text-2xl leading-snug">
+                    {e.title}
+                  </div>
+                  <div className="text-sm text-ink/65 md:text-right">
+                    {e.location}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Past */}
+        {past.length > 0 && (
+          <div>
+            <h3 className="font-display text-2xl md:text-3xl mb-6 text-ink/70">
+              Past events
+            </h3>
+            <ul className="divide-y divide-ink/10 border-y border-ink/10">
+              {past.map((e) => (
+                <li
+                  key={`${e.endDate}-${e.title}`}
+                  className="grid md:grid-cols-[260px_1fr_auto] gap-2 md:gap-8 py-5 items-baseline"
+                >
+                  <div className="text-sm font-medium text-ink/60">
+                    {e.date}
+                  </div>
+                  <div className="font-display text-lg md:text-xl leading-snug text-ink/80">
+                    {e.title}
+                  </div>
+                  <div className="text-sm text-ink/55 md:text-right">
+                    {e.location}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
