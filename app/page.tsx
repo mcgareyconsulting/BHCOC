@@ -38,12 +38,12 @@ export default function HomePage() {
           aria-hidden
         />
 
-        <div className="mx-auto max-w-6xl px-6 pt-28 pb-32 md:pt-40 md:pb-40 text-cream relative">
-          <div className="reveal">
+        <div className="mx-auto max-w-7xl px-6 lg:px-12 pt-28 pb-32 md:pt-40 md:pb-40 text-cream relative">
+          <div className="reveal lg:pr-[24rem]">
             <span className="eyebrow text-gold">
               Est. 2002 · Orlando, Florida
             </span>
-            <h1 className="mt-6 font-display text-5xl md:text-7xl leading-[0.98] max-w-4xl">
+            <h1 className="mt-6 font-display text-5xl md:text-7xl leading-[0.98] max-w-4xl lg:max-w-none">
               Celebrating, preserving,
               <br />
               and teaching{" "}
@@ -117,7 +117,24 @@ export default function HomePage() {
                   Orlando, FL 32819
                 </dd>
               </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-[0.22em] text-ink/45">
+                  Keynote
+                </dt>
+                <dd className="mt-0.5 font-medium text-ink">Erin Jackson</dd>
+                <dd className="text-clay text-[13px]">
+                  Olympic Gold Medalist
+                </dd>
+              </div>
             </dl>
+
+            <Link
+              href="/donate"
+              className="mt-5 inline-flex items-center justify-center w-full gap-2 rounded-full bg-ink px-5 py-2.5 text-cream text-sm font-medium hover:bg-clay transition"
+            >
+              Get tickets
+              <span aria-hidden>→</span>
+            </Link>
           </div>
 
         </div>

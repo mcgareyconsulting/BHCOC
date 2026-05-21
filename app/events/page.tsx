@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
+import Image from "next/image";
 
 export const metadata = { title: "Events | BHCOC" };
 
@@ -12,6 +13,7 @@ type Event = {
   endDate: string;
   location: string;
   accent: string;
+  featured?: boolean;
 };
 
 const events: Event[] = [
@@ -69,7 +71,8 @@ const events: Event[] = [
     year: "2026",
     endDate: "2026-06-27",
     location: "Rosen Centre Hotel · 9840 International Drive, Orlando, FL 32819",
-    accent: "from-clay/30 to-transparent"
+    accent: "from-clay/30 to-transparent",
+    featured: true
   }
 ];
 
@@ -87,6 +90,144 @@ const ongoing = [
     icon: "🎁"
   }
 ];
+
+function FeaturedGalaCard({ event }: { event: Event }) {
+  return (
+    <article className="relative overflow-hidden rounded-3xl bg-ink text-cream shadow-lift">
+      <div
+        className="absolute -right-32 -top-32 h-96 w-96 rounded-full opacity-40 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(201,161,74,0.55) 0%, transparent 70%)"
+        }}
+        aria-hidden
+      />
+      <div
+        className="absolute -left-32 -bottom-32 h-80 w-80 rounded-full opacity-30 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(160,48,30,0.5) 0%, transparent 70%)"
+        }}
+        aria-hidden
+      />
+
+      <div className="relative grid lg:grid-cols-[1fr_360px] gap-8 lg:gap-10 p-6 md:p-10">
+        {/* Left: details */}
+        <div>
+          <div className="flex items-center gap-3">
+            <span className="inline-block h-px w-8 bg-gold" aria-hidden />
+            <span className="text-[10px] uppercase tracking-[0.3em] text-gold font-medium">
+              Featured · Save the date
+            </span>
+          </div>
+
+          <h3 className="mt-5 font-display text-3xl md:text-4xl leading-tight">
+            {event.title}
+          </h3>
+
+          <p className="mt-3 text-cream/75 max-w-xl leading-relaxed">
+            Join us to celebrate excellence, heritage, and future leaders — an
+            unforgettable evening of honor, inspiration, and celebration.
+          </p>
+
+          <dl className="mt-7 grid sm:grid-cols-2 gap-5 text-sm">
+            <div>
+              <dt className="text-[10px] uppercase tracking-[0.22em] text-cream/55">
+                Date
+              </dt>
+              <dd className="mt-1 font-medium text-cream">
+                Sat, {event.month} {event.day}, {event.year} · 6:00 PM EST
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[10px] uppercase tracking-[0.22em] text-cream/55">
+                Venue
+              </dt>
+              <dd className="mt-1 font-medium text-cream">Rosen Centre Hotel</dd>
+              <dd className="text-cream/60 text-[13px] leading-snug">
+                9840 International Drive, Orlando, FL 32819
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[10px] uppercase tracking-[0.22em] text-cream/55">
+                Theme
+              </dt>
+              <dd className="mt-1 font-display text-lg text-gold italic">
+                Dreams Do Come True
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[10px] uppercase tracking-[0.22em] text-cream/55">
+                Ticket
+              </dt>
+              <dd className="mt-1 font-medium text-cream">
+                $100 · price includes tax
+              </dd>
+            </div>
+          </dl>
+
+          {/* Keynote speaker */}
+          <div className="mt-8 pt-7 border-t border-cream/15">
+            <div className="flex items-center gap-5">
+              <div className="relative h-20 w-20 shrink-0 rounded-full overflow-hidden ring-2 ring-gold/60">
+                <Image
+                  src="/events/erin-jackson.jpeg"
+                  alt="Erin Jackson, Olympic gold medalist"
+                  fill
+                  sizes="80px"
+                  className="object-cover"
+                />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.22em] text-cream/55">
+                  Keynote speaker
+                </div>
+                <div className="mt-1 font-display text-2xl text-cream">
+                  Erin Jackson
+                </div>
+                <div className="text-sm text-gold">Olympic Gold Medalist</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/donate"
+              className="inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3 text-ink font-medium hover:bg-gold-light transition shadow-lift"
+            >
+              Get tickets →
+            </Link>
+            <Link
+              href="/contact"
+              className="inline-flex items-center gap-2 rounded-full border border-cream/30 px-6 py-3 text-cream hover:bg-cream hover:text-ink transition"
+            >
+              Sponsorship & tables
+            </Link>
+          </div>
+
+          <p className="mt-5 text-xs text-cream/55 italic">
+            Formal invitation to follow.
+          </p>
+        </div>
+
+        {/* Right: flyer */}
+        <div className="relative w-full max-w-[360px] mx-auto lg:mx-0">
+          <div className="relative rotate-[1.5deg] rounded-2xl overflow-hidden shadow-lift ring-1 ring-gold/30">
+            <Image
+              src="/events/gala-2026-flyer.png"
+              alt="Save the Date flyer for the 22nd Black History Scholarship Awards and Juneteenth Celebration Gala"
+              width={720}
+              height={1080}
+              sizes="(min-width: 1024px) 360px, (min-width: 640px) 360px, 90vw"
+              className="w-full h-auto"
+              priority
+            />
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 function partitionByDate(list: Event[]) {
   const today = new Date();
@@ -126,40 +267,44 @@ export default function EventsPage() {
           </p>
         ) : (
           <div className="grid gap-6">
-            {upcoming.map((e) => (
-              <article
-                key={e.title}
-                className={`card-hover relative rounded-3xl border border-ink/10 bg-gradient-to-br ${e.accent} bg-cream p-6 md:p-8 grid md:grid-cols-[160px_1fr_auto] gap-6 items-center`}
-              >
-                {/* Date block */}
-                <div className="flex md:flex-col items-center md:items-start gap-4">
-                  <div className="bg-ink text-cream rounded-2xl px-5 py-4 text-center md:w-full">
-                    <div className="text-[10px] uppercase tracking-[0.25em] text-gold">
-                      {e.month}
-                    </div>
-                    <div className="font-display text-3xl mt-1">{e.day}</div>
-                    <div className="text-xs text-cream/60 mt-0.5">{e.year}</div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-display text-2xl md:text-3xl leading-tight">
-                    {e.title}
-                  </h3>
-                  <p className="mt-2 text-sm text-ink/55 flex items-center gap-2">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" />
-                    {e.location}
-                  </p>
-                </div>
-
-                <Link
-                  href="/contact"
-                  className="self-start md:self-center inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3 text-cream text-sm hover:bg-clay transition whitespace-nowrap"
+            {upcoming.map((e) =>
+              e.featured ? (
+                <FeaturedGalaCard key={e.title} event={e} />
+              ) : (
+                <article
+                  key={e.title}
+                  className={`card-hover relative rounded-3xl border border-ink/10 bg-gradient-to-br ${e.accent} bg-cream p-6 md:p-8 grid md:grid-cols-[160px_1fr_auto] gap-6 items-center`}
                 >
-                  Inquire →
-                </Link>
-              </article>
-            ))}
+                  {/* Date block */}
+                  <div className="flex md:flex-col items-center md:items-start gap-4">
+                    <div className="bg-ink text-cream rounded-2xl px-5 py-4 text-center md:w-full">
+                      <div className="text-[10px] uppercase tracking-[0.25em] text-gold">
+                        {e.month}
+                      </div>
+                      <div className="font-display text-3xl mt-1">{e.day}</div>
+                      <div className="text-xs text-cream/60 mt-0.5">{e.year}</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-display text-2xl md:text-3xl leading-tight">
+                      {e.title}
+                    </h3>
+                    <p className="mt-2 text-sm text-ink/55 flex items-center gap-2">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold" />
+                      {e.location}
+                    </p>
+                  </div>
+
+                  <Link
+                    href="/contact"
+                    className="self-start md:self-center inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3 text-cream text-sm hover:bg-clay transition whitespace-nowrap"
+                  >
+                    Inquire →
+                  </Link>
+                </article>
+              )
+            )}
           </div>
         )}
 
