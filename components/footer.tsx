@@ -80,8 +80,8 @@ export function Footer() {
               </a>
             </li>
             <li>
-              <a href="mailto:info@thebhcoc.com" className="hover:text-gold transition">
-                info@thebhcoc.com
+              <a href="mailto:bhcocinc@gmail.com" className="hover:text-gold transition">
+                bhcocinc@gmail.com
               </a>
             </li>
             <li>

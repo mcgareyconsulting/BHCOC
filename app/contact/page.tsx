@@ -34,10 +34,10 @@ export default function ContactPage() {
             <div>
               <h3 className="font-display text-xl">Email</h3>
               <a
-                href="mailto:info@thebhcoc.com"
+                href="mailto:bhcocinc@gmail.com"
                 className="mt-1 inline-block text-ink/85 gold-underline"
               >
-                info@thebhcoc.com
+                bhcocinc@gmail.com
               </a>
             </div>
 
