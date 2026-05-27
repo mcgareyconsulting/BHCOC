@@ -8,3 +8,5 @@ dist
 !.env.example
 next-env.d.ts
 .vercel
+.wrangler
+.dev.vars

@@ -9,4 +9,10 @@ const nextConfig = {
   }
 };
 
+// Mirror the Cloudflare Workers runtime during local `next dev`.
+if (process.env.NODE_ENV === "development") {
+  const { setupDevPlatform } = await import("@cloudflare/next-on-pages/next-dev");
+  await setupDevPlatform();
+}
+
 export default nextConfig;
