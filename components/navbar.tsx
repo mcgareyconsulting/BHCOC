@@ -10,7 +10,8 @@ const links = [
   { href: "/members", label: "Members" },
   { href: "/events", label: "Events" },
   { href: "/donate", label: "Donate" },
-  { href: "/contact", label: "Contact" }
+  { href: "/contact", label: "Contact" },
+  { href: "/mario", label: "Play" }
 ];
 
 export function Navbar() {
