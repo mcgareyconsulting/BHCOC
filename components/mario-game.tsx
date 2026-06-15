@@ -6,6 +6,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * Old-school side-scrolling platformer ("Mario"-style), canvas-based.
  * Four hand-built levels, increasing difficulty.
  *
+ * The game world is built from fixed-height tile levels (15 rows).
+ * The canvas fills the entire browser window: we scale the 15-tile-tall
+ * world up to the window height and reveal as much horizontal play area
+ * as the window width allows, so the play field is as big as the screen.
+ *
  * Tile legend (per level string row):
  *   space / .  empty
  *   X          ground / solid block
@@ -21,24 +26,28 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * ------------------------------------------------------------------ */
 
 const TILE = 32;
-const VIEW_W = 832; // 26 tiles
-const VIEW_H = 480; // 15 tiles
 const ROWS = 15;
+const WORLD_H = ROWS * TILE; // 480 — fixed world height, mapped to window height
 
-const GRAVITY = 0.6;
-const MOVE_ACCEL = 0.7;
-const MAX_RUN = 5.2;
-const FRICTION = 0.78;
-const JUMP_VELOCITY = -12.4;
-const JUMP_CUTOFF = -5; // releasing jump trims upward velocity
+// --- Movement tuning (snappier, more forgiving controls) -------------
+const GRAVITY = 0.62;
+const MOVE_ACCEL = 1.15; // ground acceleration — punchier
+const AIR_ACCEL = 0.9; // solid air control
+const MAX_RUN = 6.2; // higher top speed
+const FRICTION = 0.8; // ground friction when no input
+const AIR_FRICTION = 0.96; // keep momentum in the air
+const JUMP_VELOCITY = -13.2;
+const JUMP_CUTOFF = -4; // releasing jump trims upward velocity (variable height)
+const MAX_FALL = 17;
 const ENEMY_SPEED = 1.1;
+
+// Forgiveness windows (in 60fps steps)
+const COYOTE_FRAMES = 7; // jump shortly after leaving a ledge
+const JUMP_BUFFER_FRAMES = 7; // jump pressed slightly before landing still fires
 
 type Phase = "start" | "playing" | "dead" | "levelcomplete" | "won";
 
 // ---- Level definitions ------------------------------------------------
-// Each level is an array of strings, ROWS tall. Rows are padded to equal
-// width at load time. Bottom rows are the ground line.
-
 const LEVEL_1 = [
   "                                                                            ",
   "                                                                            ",
@@ -127,17 +136,16 @@ interface Goomba {
 }
 
 interface Coin {
-  x: number; // pixel center
+  x: number;
   y: number;
   collected: boolean;
-  // for popped coins from blocks
   vy: number;
   popping: boolean;
   life: number;
 }
 
 interface LevelState {
-  grid: Tile[][]; // [row][col]
+  grid: Tile[][];
   cols: number;
   goombas: Goomba[];
   coins: Coin[];
@@ -237,6 +245,8 @@ interface PlayerState {
   onGround: boolean;
   facing: 1 | -1;
   invuln: number;
+  coyote: number; // frames of jump grace after leaving ground
+  jumpBuffer: number; // frames a buffered jump press stays valid
 }
 
 export function MarioGame() {
@@ -255,7 +265,11 @@ export function MarioGame() {
   const coinCount = useRef(0);
   const lives = useRef(3);
   const transitionTimer = useRef(0);
-  const jumpHeld = useRef(false);
+
+  // View / scaling — recomputed on resize so the game fills the window.
+  const viewW = useRef(832); // visible world width in px (world units)
+  const scale = useRef(1); // world px -> css px
+  const dpr = useRef(1);
 
   const syncHud = useCallback(() => {
     setHud({
@@ -278,7 +292,9 @@ export function MarioGame() {
       h: TILE - 2,
       onGround: false,
       facing: 1,
-      invuln: 0
+      invuln: 0,
+      coyote: 0,
+      jumpBuffer: 0
     };
     camera.current = 0;
   }, []);
@@ -299,7 +315,18 @@ export function MarioGame() {
     setPhase(p);
   }, []);
 
-  // -- Input ----------------------------------------------------------
+  // Used by both keyboard and on-screen buttons: a "confirm" press that
+  // starts / restarts the game depending on the current phase.
+  const confirmPress = useCallback(() => {
+    const p = phaseRef.current;
+    if (p === "start" || p === "dead" || p === "won") {
+      startGame();
+      return true;
+    }
+    return false;
+  }, [startGame]);
+
+  // -- Keyboard input -------------------------------------------------
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
@@ -308,14 +335,13 @@ export function MarioGame() {
       ) {
         e.preventDefault();
       }
-      keys.current[k] = true;
-
-      // Phase transitions on key press
-      if (k === " " || k === "enter") {
-        const p = phaseRef.current;
-        if (p === "start") startGame();
-        else if (p === "dead" || p === "won") startGame();
+      // rising edge of a jump key -> buffer a jump (ignore key auto-repeat)
+      const isJumpKey = k === "arrowup" || k === "w" || k === " ";
+      if (isJumpKey && !keys.current[k] && !e.repeat) {
+        keys.current["__jumpPressed"] = true;
       }
+      keys.current[k] = true;
+      if (k === " " || k === "enter") confirmPress();
     };
     const up = (e: KeyboardEvent) => {
       keys.current[e.key.toLowerCase()] = false;
@@ -326,7 +352,7 @@ export function MarioGame() {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
     };
-  }, [startGame]);
+  }, [confirmPress]);
 
   // -- Helpers used inside loop --------------------------------------
   const tileAt = (lv: LevelState, col: number, r: number): Tile => {
@@ -334,18 +360,7 @@ export function MarioGame() {
     return lv.grid[r][col];
   };
 
-  const solidAt = (lv: LevelState, px: number, py: number): boolean => {
-    const col = Math.floor(px / TILE);
-    const r = Math.floor(py / TILE);
-    return isSolid(tileAt(lv, col, r));
-  };
-
-  // AABB overlap of player box with solid tiles, resolve one axis.
-  const collideAxis = (
-    lv: LevelState,
-    p: PlayerState,
-    axis: "x" | "y"
-  ) => {
+  const collideAxis = (lv: LevelState, p: PlayerState, axis: "x" | "y") => {
     const left = p.x;
     const right = p.x + p.w;
     const top = p.y;
@@ -370,7 +385,6 @@ export function MarioGame() {
             p.onGround = true;
           } else if (p.vy < 0) {
             p.y = ty + TILE;
-            // bumped a block from below -> handle ? block
             handleHeadBump(lv, c, r);
           }
           p.vy = 0;
@@ -383,7 +397,6 @@ export function MarioGame() {
     const t = tileAt(lv, col, r);
     if (t === "?") {
       lv.grid[r][col] = "used";
-      // pop a coin
       lv.coins.push({
         x: col * TILE + TILE / 2,
         y: r * TILE,
@@ -404,7 +417,6 @@ export function MarioGame() {
     if (lives.current <= 0) {
       setPhaseBoth("dead");
     } else {
-      // respawn at level start
       loadLevel(levelIndex.current);
     }
   }, [loadLevel, setPhaseBoth, syncHud]);
@@ -415,7 +427,22 @@ export function MarioGame() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.imageSmoothingEnabled = false;
+
+    // Size the canvas to the full window and compute the world->screen
+    // scale so the 15-tile-tall world fills the height.
+    const resize = () => {
+      const cssW = window.innerWidth;
+      const cssH = window.innerHeight;
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      dpr.current = ratio;
+      canvas.width = Math.round(cssW * ratio);
+      canvas.height = Math.round(cssH * ratio);
+      const s = cssH / WORLD_H;
+      scale.current = s;
+      viewW.current = cssW / s;
+    };
+    resize();
+    window.addEventListener("resize", resize);
 
     let raf = 0;
     let last = performance.now();
@@ -427,40 +454,45 @@ export function MarioGame() {
       const lv = level.current;
       if (!p || !lv) return;
 
-      // --- horizontal input ---
       const left = keys.current["arrowleft"] || keys.current["a"];
       const right = keys.current["arrowright"] || keys.current["d"];
       const jump = keys.current["arrowup"] || keys.current["w"] || keys.current[" "];
+      const jumpPressed = !!keys.current["__jumpPressed"];
+      keys.current["__jumpPressed"] = false;
 
+      // tick down forgiveness timers; refresh coyote while grounded
+      if (p.onGround) p.coyote = COYOTE_FRAMES;
+      else if (p.coyote > 0) p.coyote -= 1;
+      if (p.jumpBuffer > 0) p.jumpBuffer -= 1;
+      if (jumpPressed) p.jumpBuffer = JUMP_BUFFER_FRAMES;
+
+      // --- horizontal movement (separate ground/air feel) ---
+      const accel = p.onGround ? MOVE_ACCEL : AIR_ACCEL;
       if (left && !right) {
-        p.vx -= MOVE_ACCEL;
+        p.vx -= accel;
         p.facing = -1;
       } else if (right && !left) {
-        p.vx += MOVE_ACCEL;
+        p.vx += accel;
         p.facing = 1;
       } else {
-        p.vx *= FRICTION;
+        p.vx *= p.onGround ? FRICTION : AIR_FRICTION;
         if (Math.abs(p.vx) < 0.05) p.vx = 0;
       }
       p.vx = Math.max(-MAX_RUN, Math.min(MAX_RUN, p.vx));
 
-      // --- jump ---
-      if (jump) {
-        if (p.onGround && !jumpHeld.current) {
-          p.vy = JUMP_VELOCITY;
-          p.onGround = false;
-        }
-        jumpHeld.current = true;
-      } else {
-        // variable jump height: cut upward velocity on release
-        if (p.vy < JUMP_CUTOFF) p.vy = JUMP_CUTOFF;
-        jumpHeld.current = false;
+      // --- jump: fires from a buffered press within the coyote window ---
+      if (p.jumpBuffer > 0 && p.coyote > 0) {
+        p.vy = JUMP_VELOCITY;
+        p.onGround = false;
+        p.coyote = 0;
+        p.jumpBuffer = 0;
       }
+      // variable height: cut the rise short when jump is released
+      if (!jump && p.vy < JUMP_CUTOFF) p.vy = JUMP_CUTOFF;
 
       // --- physics integrate ---
       p.x += p.vx;
       collideAxis(lv, p, "x");
-      // clamp to world bounds horizontally
       if (p.x < 0) {
         p.x = 0;
         p.vx = 0;
@@ -468,20 +500,19 @@ export function MarioGame() {
       if (p.x + p.w > lv.widthPx) p.x = lv.widthPx - p.w;
 
       p.vy += GRAVITY;
-      if (p.vy > 16) p.vy = 16;
+      if (p.vy > MAX_FALL) p.vy = MAX_FALL;
       p.onGround = false;
       p.y += p.vy;
       collideAxis(lv, p, "y");
 
       if (p.invuln > 0) p.invuln -= 1;
 
-      // --- hazard / pit death ---
-      // fell off bottom of the world
-      if (p.y > VIEW_H + TILE) {
+      // --- pit death ---
+      if (p.y > WORLD_H + TILE) {
         killPlayer();
         return;
       }
-      // spike/lava: sample around feet
+      // --- spike / lava ---
       const footY = p.y + p.h - 4;
       if (
         tileAt(lv, Math.floor((p.x + 4) / TILE), Math.floor(footY / TILE)) === "^" ||
@@ -519,36 +550,25 @@ export function MarioGame() {
           if (g.squashTimer > 0) g.squashTimer -= 1;
           continue;
         }
-        // only animate goombas near the camera for perf/feel
         g.x += g.vx;
-        // gravity for goomba
         g.y += 4;
-        // resolve vertical (stand on ground)
-        let gr = Math.floor((g.y + g.h) / TILE);
+        const gr = Math.floor((g.y + g.h) / TILE);
         const gcL = Math.floor(g.x / TILE);
         const gcR = Math.floor((g.x + g.w) / TILE);
         if (isSolid(tileAt(lv, gcL, gr)) || isSolid(tileAt(lv, gcR, gr))) {
           g.y = gr * TILE - g.h;
         }
-        // turn around at walls
         const aheadCol =
           g.vx < 0 ? Math.floor((g.x - 1) / TILE) : Math.floor((g.x + g.w + 1) / TILE);
         const midRow = Math.floor((g.y + g.h / 2) / TILE);
         if (isSolid(tileAt(lv, aheadCol, midRow))) {
           g.vx = -g.vx;
         }
-        // turn around at ledges (no floor ahead)
         const footRow = Math.floor((g.y + g.h + 2) / TILE);
         const floorAhead = isSolid(tileAt(lv, aheadCol, footRow));
         if (!floorAhead) g.vx = -g.vx;
 
-        // collide with player
-        if (
-          p.x < g.x + g.w &&
-          p.x + p.w > g.x &&
-          p.y < g.y + g.h &&
-          p.y + p.h > g.y
-        ) {
+        if (p.x < g.x + g.w && p.x + p.w > g.x && p.y < g.y + g.h && p.y + p.h > g.y) {
           const stomped = p.vy > 0 && p.y + p.h - g.y < 18;
           if (stomped) {
             g.alive = false;
@@ -557,7 +577,6 @@ export function MarioGame() {
             score.current += 300;
             syncHud();
           } else if (p.invuln <= 0) {
-            // take damage
             killPlayer();
             return;
           }
@@ -578,8 +597,9 @@ export function MarioGame() {
       }
 
       // --- camera follows player ---
-      const target = p.x + p.w / 2 - VIEW_W / 2;
-      camera.current = Math.max(0, Math.min(target, lv.widthPx - VIEW_W));
+      const vw = viewW.current;
+      const target = p.x + p.w / 2 - vw / 2;
+      camera.current = Math.max(0, Math.min(target, Math.max(0, lv.widthPx - vw)));
     };
 
     // ---- rendering ----
@@ -670,7 +690,6 @@ export function MarioGame() {
 
     const drawGoomba = (g: Goomba, sx: number, sy: number) => {
       if (!g.alive) {
-        // squashed
         ctx.fillStyle = "#7a4a2a";
         ctx.fillRect(sx, sy + g.h - 8, g.w, 8);
         return;
@@ -680,7 +699,6 @@ export function MarioGame() {
       ctx.fillStyle = "#5a3417";
       ctx.fillRect(sx, sy + g.h - 6, 6, 6);
       ctx.fillRect(sx + g.w - 6, sy + g.h - 6, 6, 6);
-      // eyes
       ctx.fillStyle = "#fff";
       ctx.fillRect(sx + 5, sy + 8, 5, 6);
       ctx.fillRect(sx + g.w - 10, sy + 8, 5, 6);
@@ -693,30 +711,25 @@ export function MarioGame() {
       const sx = p.x - camera.current;
       const sy = p.y;
       if (p.invuln > 0 && Math.floor(p.invuln / 4) % 2 === 0) return; // blink
-      // overalls / body
-      ctx.fillStyle = "#1f6fd0"; // blue overalls
+      ctx.fillStyle = "#1f6fd0";
       ctx.fillRect(sx, sy + p.h * 0.45, p.w, p.h * 0.55);
-      // shirt
-      ctx.fillStyle = "#d8331f"; // red shirt
+      ctx.fillStyle = "#d8331f";
       ctx.fillRect(sx, sy + p.h * 0.25, p.w, p.h * 0.3);
-      // head / skin
       ctx.fillStyle = "#f0b98a";
       ctx.fillRect(sx + 3, sy, p.w - 6, p.h * 0.3);
-      // cap
       ctx.fillStyle = "#d8331f";
       ctx.fillRect(sx + 1, sy - 2, p.w - 2, 6);
       const eyeX = p.facing === 1 ? sx + p.w - 8 : sx + 4;
       ctx.fillStyle = "#000";
       ctx.fillRect(eyeX, sy + 6, 3, 4);
-      // shoes
       ctx.fillStyle = "#5a3417";
       ctx.fillRect(sx, sy + p.h - 4, p.w, 4);
     };
 
     const drawFlag = (lv: LevelState) => {
       const sx = lv.flagX - camera.current + TILE / 2;
-      const topY = TILE; // near the top
-      const baseY = VIEW_H - TILE * 4;
+      const topY = TILE;
+      const baseY = WORLD_H - TILE * 4;
       ctx.fillStyle = "#cfcfcf";
       ctx.fillRect(sx - 2, topY, 4, baseY - topY);
       ctx.fillStyle = "#1f8a3a";
@@ -734,20 +747,26 @@ export function MarioGame() {
 
     const render = () => {
       const lv = level.current;
+      const vw = viewW.current;
+
+      // map world coords -> device pixels (fills the whole canvas/window)
+      const s = scale.current * dpr.current;
+      ctx.setTransform(s, 0, 0, s, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+
       // sky
-      const grad = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+      const grad = ctx.createLinearGradient(0, 0, 0, WORLD_H);
       grad.addColorStop(0, "#5c94fc");
       grad.addColorStop(1, "#9bd0ff");
       ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+      ctx.fillRect(0, 0, vw, WORLD_H);
 
       if (!lv) return;
 
-      // simple parallax clouds + hills
       const camX = camera.current;
       ctx.fillStyle = "rgba(255,255,255,0.85)";
-      for (let i = 0; i < 8; i++) {
-        const cxv = ((i * 360 - camX * 0.3) % (VIEW_W + 400)) - 100;
+      for (let i = 0; i < 10; i++) {
+        const cxv = ((i * 360 - camX * 0.3) % (vw + 500)) - 120;
         const cyv = 60 + (i % 3) * 40;
         ctx.beginPath();
         ctx.arc(cxv, cyv, 18, 0, Math.PI * 2);
@@ -756,16 +775,15 @@ export function MarioGame() {
         ctx.fill();
       }
       ctx.fillStyle = "rgba(46,158,79,0.55)";
-      for (let i = 0; i < 8; i++) {
-        const hx = ((i * 300 - camX * 0.5) % (VIEW_W + 400)) - 100;
+      for (let i = 0; i < 10; i++) {
+        const hx = ((i * 300 - camX * 0.5) % (vw + 500)) - 120;
         ctx.beginPath();
-        ctx.arc(hx, VIEW_H - TILE * 4, 60, Math.PI, 0);
+        ctx.arc(hx, WORLD_H - TILE * 4, 60, Math.PI, 0);
         ctx.fill();
       }
 
-      // tiles (only visible columns)
       const startCol = Math.floor(camX / TILE);
-      const endCol = Math.min(lv.cols, startCol + VIEW_W / TILE + 2);
+      const endCol = Math.min(lv.cols, startCol + Math.ceil(vw / TILE) + 2);
       for (let c = startCol; c < endCol; c++) {
         for (let r = 0; r < ROWS; r++) {
           const t = lv.grid[r][c];
@@ -776,40 +794,39 @@ export function MarioGame() {
 
       drawFlag(lv);
 
-      // coins
       for (const coin of lv.coins) {
         if (coin.collected) continue;
         drawCoin(coin.x - camX, coin.y);
       }
 
-      // goombas
       for (const g of lv.goombas) {
         if (!g.alive && g.squashTimer <= 0) continue;
         const gsx = g.x - camX;
-        if (gsx < -TILE || gsx > VIEW_W + TILE) continue;
+        if (gsx < -TILE || gsx > vw + TILE) continue;
         drawGoomba(g, gsx, g.y);
       }
 
-      // player
       const p = player.current;
       if (p) drawPlayer(p);
     };
 
-    const drawOverlayText = (lines: { text: string; size: number; y: number; color?: string }[]) => {
+    const drawOverlayText = (
+      lines: { text: string; size: number; y: number; color?: string }[]
+    ) => {
+      const vw = viewW.current;
       ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+      ctx.fillRect(0, 0, vw, WORLD_H);
       ctx.textAlign = "center";
       for (const l of lines) {
         ctx.fillStyle = l.color ?? "#fff";
         ctx.font = `bold ${l.size}px monospace`;
-        ctx.fillText(l.text, VIEW_W / 2, l.y);
+        ctx.fillText(l.text, vw / 2, l.y);
       }
     };
 
     const loop = (now: number) => {
       acc += now - last;
       last = now;
-      // fixed timestep, clamp to avoid spiral of death
       let steps = 0;
       while (acc >= STEP && steps < 5) {
         if (phaseRef.current === "playing") {
@@ -829,15 +846,14 @@ export function MarioGame() {
 
       render();
 
-      // overlays
       if (phaseRef.current === "start") {
         drawOverlayText([
-          { text: "SUPER RETRO BROS", size: 40, y: 150, color: "#f7d51d" },
+          { text: "SUPER RETRO BROS", size: 44, y: 150, color: "#f7d51d" },
           { text: "4 Levels of platforming", size: 18, y: 195 },
           { text: "Arrow keys / WASD to move", size: 16, y: 250 },
           { text: "Up / W / Space to jump (hold for higher)", size: 16, y: 278 },
           { text: "Stomp enemies, grab coins, reach the flag", size: 16, y: 306 },
-          { text: "Press SPACE or ENTER to start", size: 20, y: 370, color: "#7cf77c" }
+          { text: "Press SPACE or ENTER to start", size: 20, y: 372, color: "#7cf77c" }
         ]);
       } else if (phaseRef.current === "levelcomplete") {
         drawOverlayText([
@@ -863,34 +879,71 @@ export function MarioGame() {
     };
 
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [killPlayer, loadLevel, setPhaseBoth, syncHud]);
 
+  // -- Touch controls -------------------------------------------------
+  // Bind a virtual key to a button; "jump" also acts as confirm/start.
+  const bindTouch = (key: string, isJump = false) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      e.preventDefault();
+      if (isJump && confirmPress()) return;
+      keys.current[key] = true;
+      if (isJump) keys.current["__jumpPressed"] = true;
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      e.preventDefault();
+      keys.current[key] = false;
+    },
+    onPointerLeave: () => {
+      keys.current[key] = false;
+    },
+    onPointerCancel: () => {
+      keys.current[key] = false;
+    }
+  });
+
+  const padBtn =
+    "flex h-16 w-16 select-none items-center justify-center rounded-full border-2 border-white/40 bg-black/40 text-2xl font-bold text-white/90 backdrop-blur-sm active:bg-white/30 sm:h-20 sm:w-20";
+
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="flex w-full max-w-[832px] items-center justify-between gap-4 font-mono text-sm text-white">
+    <div className="fixed inset-0 z-[100] touch-none bg-black">
+      <canvas
+        ref={canvasRef}
+        className="block h-full w-full"
+        style={{ imageRendering: "pixelated" }}
+        onPointerDown={() => {
+          // tapping the canvas on the title / end screens also starts
+          confirmPress();
+        }}
+      />
+
+      {/* HUD overlay */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-4 px-4 py-3 font-mono text-sm text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] sm:text-base">
         <span>SCORE {hud.score.toString().padStart(6, "0")}</span>
         <span className="text-yellow-300">COINS {hud.coins.toString().padStart(2, "0")}</span>
         <span>WORLD {hud.level}-1</span>
-        <span className="text-red-400">
-          LIVES {"♥".repeat(Math.max(0, hud.lives))}
-        </span>
+        <span className="text-red-400">LIVES {"♥".repeat(Math.max(0, hud.lives))}</span>
       </div>
-      <canvas
-        ref={canvasRef}
-        width={VIEW_W}
-        height={VIEW_H}
-        className="w-full max-w-[832px] rounded-lg border-4 border-black bg-[#5c94fc] shadow-2xl"
-        style={{ imageRendering: "pixelated", aspectRatio: `${VIEW_W} / ${VIEW_H}` }}
-      />
-      <p className="max-w-[832px] text-center text-sm text-stone-300">
-        Move with <kbd className="rounded bg-black/40 px-1">←</kbd>{" "}
-        <kbd className="rounded bg-black/40 px-1">→</kbd> (or A / D), jump with{" "}
-        <kbd className="rounded bg-black/40 px-1">↑</kbd> / W /{" "}
-        <kbd className="rounded bg-black/40 px-1">Space</kbd>. Stomp the Goombas, collect
-        coins, dodge the spikes, and reach the flag at the end of each of the four stages.
-      </p>
+
+      {/* On-screen touch controls (hidden when a precise pointer / mouse is present) */}
+      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between px-6 pb-8 [@media(pointer:fine)]:hidden">
+        <div className="flex gap-4">
+          <button aria-label="Move left" className={padBtn} {...bindTouch("arrowleft")}>
+            ◀
+          </button>
+          <button aria-label="Move right" className={padBtn} {...bindTouch("arrowright")}>
+            ▶
+          </button>
+        </div>
+        <button aria-label="Jump" className={padBtn} {...bindTouch(" ", true)}>
+          ▲
+        </button>
+      </div>
     </div>
   );
 }
