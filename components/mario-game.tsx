@@ -37,11 +37,14 @@ const WORLD_H = ROWS * TILE; // 480 — fixed world height, mapped to window hei
 
 // --- Movement tuning (snappier, more forgiving controls) -------------
 const GRAVITY = 0.62;
-const MOVE_ACCEL = 1.15; // ground acceleration — punchier
-const AIR_ACCEL = 0.9; // solid air control
-const MAX_RUN = 6.2; // higher top speed
-const FRICTION = 0.8; // ground friction when no input
-const AIR_FRICTION = 0.96; // keep momentum in the air
+const MOVE_ACCEL = 1.2; // ground acceleration — punchier
+const AIR_ACCEL = 0.85; // solid (but slightly looser) air control
+const MAX_RUN = 6.2; // top speed
+const FRICTION = 0.66; // ground friction when no input — planted, not icy
+const AIR_FRICTION = 0.97; // keep momentum in the air
+const TURN_BRAKE = 0.78; // extra braking when reversing on the ground
+const TURN_ACCEL_MULT = 1.9; // accelerate harder while turning around (crisp pivots)
+const LAND_BRAKE = 0.55; // kill slide on touchdown when no input is held
 const JUMP_VELOCITY = -13.2;
 const JUMP_CUTOFF = -4; // releasing jump trims upward velocity (variable height)
 const MAX_FALL = 17;
@@ -161,6 +164,16 @@ interface LevelState {
   widthPx: number;
 }
 
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  r: number;
+}
+
 interface Controls {
   left: string[];
   right: string[];
@@ -188,7 +201,10 @@ interface PlayerState {
   invuln: number;
   coyote: number;
   jumpBuffer: number;
-  animTime: number;
+  animTime: number; // accumulates while running -> drives the run cycle
+  landTimer: number; // counts down after touchdown -> squash
+  jumpTimer: number; // counts down after takeoff -> stretch
+  skid: boolean; // braking / pivoting on the ground this frame
   controls: Controls;
   colors: Palette;
 }
@@ -305,6 +321,9 @@ function makePlayer(id: number, lv: LevelState, mode: number): PlayerState {
     coyote: 0,
     jumpBuffer: 0,
     animTime: 0,
+    landTimer: 0,
+    jumpTimer: 0,
+    skid: false,
     controls,
     colors: id === 0 ? P1_COLORS : P2_COLORS
   };
@@ -331,6 +350,7 @@ export function MarioGame() {
   const levelIndex = useRef(0);
   const level = useRef<LevelState | null>(null);
   const players = useRef<PlayerState[]>([]);
+  const particles = useRef<Particle[]>([]);
   const camera = useRef(0);
   const scores = useRef<number[]>([0, 0]);
   const coinTotals = useRef<number[]>([0, 0]);
@@ -360,6 +380,7 @@ export function MarioGame() {
     level.current = lv;
     const count = modeRef.current === 2 ? 2 : 1;
     players.current = Array.from({ length: count }, (_, i) => makePlayer(i, lv, modeRef.current));
+    particles.current = [];
     camera.current = 0;
   }, []);
 
@@ -537,6 +558,22 @@ export function MarioGame() {
     let acc = 0;
     const STEP = 1000 / 60;
 
+    const spawnDust = (x: number, y: number, count: number, spread: number) => {
+      for (let i = 0; i < count; i++) {
+        const ml = 18 + Math.random() * 12;
+        particles.current.push({
+          x,
+          y,
+          vx: (Math.random() - 0.5) * spread,
+          vy: -Math.random() * 1.5 - 0.2,
+          life: ml,
+          maxLife: ml,
+          r: 1.4 + Math.random() * 2
+        });
+      }
+      if (particles.current.length > 120) particles.current.splice(0, particles.current.length - 120);
+    };
+
     // step a single player's physics + interactions; returns true to halt frame
     const stepPlayer = (p: PlayerState, lv: LevelState): boolean => {
       const c = p.controls;
@@ -545,32 +582,49 @@ export function MarioGame() {
       const jumpHeld = c.jump.some((k) => keys.current[k]);
       const jumpEdge = c.jump.some((k) => justPressed.current.has(k));
 
+      const wasGrounded = p.onGround;
+
       if (p.onGround) p.coyote = COYOTE_FRAMES;
       else if (p.coyote > 0) p.coyote -= 1;
       if (p.jumpBuffer > 0) p.jumpBuffer -= 1;
       if (jumpEdge) p.jumpBuffer = JUMP_BUFFER_FRAMES;
 
+      // --- horizontal movement: crisp pivots, planted stops ---
       const accel = p.onGround ? MOVE_ACCEL : AIR_ACCEL;
+      p.skid = false;
       if (left && !right) {
-        p.vx -= accel;
+        if (p.onGround && p.vx > 1.4) {
+          p.vx *= TURN_BRAKE; // brake hard before the pivot
+          p.skid = true;
+        }
+        p.vx -= accel * (p.vx > 0 ? TURN_ACCEL_MULT : 1);
         p.facing = -1;
       } else if (right && !left) {
-        p.vx += accel;
+        if (p.onGround && p.vx < -1.4) {
+          p.vx *= TURN_BRAKE;
+          p.skid = true;
+        }
+        p.vx += accel * (p.vx < 0 ? TURN_ACCEL_MULT : 1);
         p.facing = 1;
       } else {
         p.vx *= p.onGround ? FRICTION : AIR_FRICTION;
-        if (Math.abs(p.vx) < 0.05) p.vx = 0;
+        if (Math.abs(p.vx) < 0.06) p.vx = 0;
       }
       p.vx = Math.max(-MAX_RUN, Math.min(MAX_RUN, p.vx));
 
+      // --- jump (with takeoff puff + stretch) ---
       if (p.jumpBuffer > 0 && p.coyote > 0) {
         p.vy = JUMP_VELOCITY;
         p.onGround = false;
         p.coyote = 0;
         p.jumpBuffer = 0;
+        p.jumpTimer = 10;
+        p.landTimer = 0;
+        spawnDust(p.x + p.w / 2, p.y + p.h, 4, 1.4);
       }
       if (!jumpHeld && p.vy < JUMP_CUTOFF) p.vy = JUMP_CUTOFF;
 
+      // --- integrate ---
       p.x += p.vx;
       collideAxis(lv, p, "x");
       if (p.x < 0) {
@@ -581,12 +635,28 @@ export function MarioGame() {
 
       p.vy += GRAVITY;
       if (p.vy > MAX_FALL) p.vy = MAX_FALL;
+      const fallSpeed = p.vy;
       p.onGround = false;
       p.y += p.vy;
       collideAxis(lv, p, "y");
 
+      // --- landing: squash + kill the slide + kick up dust ---
+      if (!wasGrounded && p.onGround) {
+        p.landTimer = 9;
+        p.jumpTimer = 0;
+        if (!(left || right)) p.vx *= LAND_BRAKE;
+        if (fallSpeed > 6) spawnDust(p.x + p.w / 2, p.y + p.h, 6, 2.4);
+      }
+
+      // --- animation timers ---
       if (p.invuln > 0) p.invuln -= 1;
+      if (p.landTimer > 0) p.landTimer -= 1;
+      if (p.jumpTimer > 0) p.jumpTimer -= 1;
       if (p.onGround && Math.abs(p.vx) > 0.4) p.animTime += Math.abs(p.vx);
+      else if (p.onGround) p.animTime = 0;
+      if (p.skid && p.onGround && animTick.current % 3 === 0) {
+        spawnDust(p.x + p.w / 2 - p.facing * p.w * 0.4, p.y + p.h, 2, 1.4);
+      }
 
       // pit death
       if (p.y > WORLD_H + TILE) return killPlayer(p.id);
@@ -640,6 +710,18 @@ export function MarioGame() {
         coin.vy += 0.5;
         coin.life -= 1;
         if (coin.life <= 0) coin.collected = true;
+      }
+
+      // dust particles
+      const ps = particles.current;
+      for (let i = ps.length - 1; i >= 0; i--) {
+        const pt = ps[i];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.vy += 0.12;
+        pt.vx *= 0.96;
+        pt.life -= 1;
+        if (pt.life <= 0) ps.splice(i, 1);
       }
 
       // players
@@ -726,6 +808,25 @@ export function MarioGame() {
       g.addColorStop(0, top);
       g.addColorStop(1, bot);
       return g;
+    };
+
+    // thick round-capped line — used for limbs
+    const capsule = (
+      x1: number,
+      y1: number,
+      x2: number,
+      y2: number,
+      width: number,
+      color: string
+    ) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
     };
 
     // ---- tiles ----
@@ -939,112 +1040,215 @@ export function MarioGame() {
       const h = p.h;
       const C = p.colors;
       const airborne = !p.onGround;
-      const step = Math.floor(p.animTime / 6) % 2;
+      const rising = airborne && p.vy < 0;
+      const moving = p.onGround && Math.abs(p.vx) > 0.4;
+      const t = p.animTime * 0.2; // run-cycle phase
+      const swing = Math.sin(t);
+
+      // ground shadow — shrinks/fades as the player rises
+      const liftFrac = airborne ? Math.min(1, Math.abs(p.vy) / 13) : 0;
+      ctx.fillStyle = `rgba(0,0,0,${0.2 - liftFrac * 0.12})`;
+      ctx.beginPath();
+      ctx.ellipse(sx + w / 2, sy + h + 1, w * (0.44 - liftFrac * 0.16), 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // squash & stretch, anchored at the feet
+      let scaleX = 1;
+      let scaleY = 1;
+      if (p.landTimer > 0) {
+        const k = p.landTimer / 9;
+        scaleX = 1 + 0.24 * k;
+        scaleY = 1 - 0.24 * k;
+      } else if (p.jumpTimer > 0 || rising) {
+        scaleX = 0.9;
+        scaleY = 1.14;
+      } else if (airborne) {
+        scaleX = 1.06;
+        scaleY = 0.95;
+      } else if (!moving) {
+        scaleY = 1 + Math.sin(animTick.current * 0.08 + p.id) * 0.02; // breathing
+        scaleX = 2 - scaleY;
+      }
+      const bob = moving ? Math.abs(swing) * 1.3 : 0;
 
       ctx.save();
-      ctx.translate(sx + w / 2, sy);
+      ctx.translate(sx + w / 2, sy + h); // feet anchor
       ctx.scale(p.facing, 1);
-      ctx.translate(-w / 2, 0);
+      ctx.scale(scaleX, scaleY);
+      ctx.translate(-w / 2, -h - bob);
 
-      // soft ground shadow
-      if (!airborne) {
-        ctx.fillStyle = "rgba(0,0,0,0.18)";
-        ctx.beginPath();
-        ctx.ellipse(w / 2, h, w * 0.42, 3, 0, 0, Math.PI * 2);
-        ctx.fill();
+      // ---- limb targets (local coords) ----
+      const hipL = w * 0.4;
+      const hipR = w * 0.58;
+      let f1x = w * 0.36;
+      let f2x = w * 0.6;
+      let f1y = h;
+      let f2y = h;
+      if (rising) {
+        f1x = w * 0.34;
+        f2x = w * 0.6;
+        f1y = h * 0.82;
+        f2y = h * 0.9;
+      } else if (airborne) {
+        f1x = w * 0.28;
+        f2x = w * 0.66;
+        f1y = h * 0.96;
+        f2y = h * 0.88;
+      } else if (moving) {
+        f1x = w * 0.42 + swing * w * 0.26;
+        f2x = w * 0.56 - swing * w * 0.26;
+        f1y = h - Math.max(0, swing) * h * 0.13;
+        f2y = h - Math.max(0, -swing) * h * 0.13;
       }
 
-      // boots
-      ctx.fillStyle = BOOT;
-      const bootY = h - 5;
-      let lb = 0.06 * w;
-      let rbx = 0.5 * w;
-      if (airborne) {
-        lb = 0.16 * w;
-        rbx = 0.44 * w;
-      } else if (Math.abs(p.vx) > 0.4) {
-        lb = step === 0 ? 0.0 : 0.16 * w;
-        rbx = step === 0 ? 0.5 * w : 0.36 * w;
+      const shL = w * 0.3;
+      const shR = w * 0.7;
+      const shY = h * 0.44;
+      let a1x = shL - w * 0.04;
+      let a1y = shY + h * 0.2;
+      let a2x = shR + w * 0.04;
+      let a2y = shY + h * 0.2;
+      if (rising) {
+        a1x = w * 0.18;
+        a1y = h * 0.14;
+        a2x = w * 0.84;
+        a2y = h * 0.1;
+      } else if (airborne) {
+        a1x = w * 0.06;
+        a1y = h * 0.42;
+        a2x = w * 0.96;
+        a2y = h * 0.42;
+      } else if (moving) {
+        a1x = shL - swing * w * 0.12;
+        a1y = shY + h * 0.18 + Math.max(0, swing) * h * 0.04;
+        a2x = shR + swing * w * 0.12;
+        a2y = shY + h * 0.18 + Math.max(0, -swing) * h * 0.04;
       }
-      rr(lb, bootY, w * 0.42, 6, 3);
-      ctx.fill();
-      rr(rbx, bootY, w * 0.46, 6, 3);
-      ctx.fill();
 
-      // overalls (lower body)
-      ctx.fillStyle = C.overall;
-      rr(0.08 * w, h * 0.5, w * 0.84, h * 0.46, 5);
-      ctx.fill();
-      ctx.fillStyle = C.overallDark;
-      rr(0.08 * w, h * 0.78, w * 0.84, h * 0.18, 4);
-      ctx.fill();
+      const legW = w * 0.26;
+      const armW = w * 0.2;
 
-      // shirt / torso
-      ctx.fillStyle = C.hat;
-      rr(0.1 * w, h * 0.34, w * 0.8, h * 0.26, 5);
+      // ---- back limbs ----
+      capsule(hipL, h * 0.66, f1x, f1y - 2, legW, C.overallDark);
+      ctx.fillStyle = "#3a2412";
+      ctx.beginPath();
+      ctx.ellipse(f1x, f1y - 1, legW * 0.7, 3, 0, 0, Math.PI * 2);
       ctx.fill();
-      // arm (front)
-      ctx.fillStyle = C.hat;
-      rr(w * 0.72, h * 0.4, w * 0.24, h * 0.18, 4);
-      ctx.fill();
+      capsule(shL, shY, a1x, a1y, armW, C.hatDark);
       ctx.fillStyle = C.skin;
       ctx.beginPath();
-      ctx.arc(w * 0.92, h * 0.6, 2.6, 0, Math.PI * 2); // hand
+      ctx.arc(a1x, a1y, armW * 0.55, 0, Math.PI * 2);
       ctx.fill();
 
-      // overall front panel + straps + button
-      ctx.fillStyle = C.overall;
-      rr(0.3 * w, h * 0.46, w * 0.4, h * 0.22, 3);
+      // ---- front leg + boot ----
+      capsule(hipR, h * 0.66, f2x, f2y - 2, legW, C.overall);
+      ctx.fillStyle = BOOT;
+      ctx.beginPath();
+      ctx.ellipse(f2x + p.facing * 1, f2y - 1, legW * 0.85, 4, 0, 0, Math.PI * 2);
       ctx.fill();
+
+      // ---- torso / overalls ----
+      ctx.fillStyle = C.overall;
+      rr(0.16 * w, h * 0.44, w * 0.68, h * 0.3, 6);
+      ctx.fill();
+      // shirt collar/shoulders
+      ctx.fillStyle = C.hat;
+      rr(0.14 * w, h * 0.36, w * 0.72, h * 0.16, 6);
+      ctx.fill();
+      // overall straps + buttons
+      ctx.strokeStyle = C.overall;
+      ctx.lineWidth = w * 0.1;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(0.34 * w, h * 0.36);
+      ctx.lineTo(0.42 * w, h * 0.5);
+      ctx.moveTo(0.66 * w, h * 0.36);
+      ctx.lineTo(0.58 * w, h * 0.5);
+      ctx.stroke();
       ctx.fillStyle = "#f7d038";
       ctx.beginPath();
-      ctx.arc(0.4 * w, h * 0.55, 1.6, 0, Math.PI * 2);
-      ctx.arc(0.6 * w, h * 0.55, 1.6, 0, Math.PI * 2);
+      ctx.arc(0.42 * w, h * 0.52, 1.7, 0, Math.PI * 2);
+      ctx.arc(0.58 * w, h * 0.52, 1.7, 0, Math.PI * 2);
       ctx.fill();
+      // subtle body outline
+      ctx.strokeStyle = "rgba(0,0,0,0.18)";
+      ctx.lineWidth = 1;
+      rr(0.16 * w, h * 0.36, w * 0.68, h * 0.38, 6);
+      ctx.stroke();
 
-      // head
+      // ---- head ----
       ctx.fillStyle = C.skin;
-      rr(0.16 * w, h * 0.05, w * 0.66, h * 0.34, 6);
+      rr(0.18 * w, h * 0.04, w * 0.62, h * 0.34, 7);
       ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.15)";
+      ctx.lineWidth = 1;
+      rr(0.18 * w, h * 0.04, w * 0.62, h * 0.34, 7);
+      ctx.stroke();
       // ear
+      ctx.fillStyle = C.skin;
       ctx.beginPath();
-      ctx.arc(0.2 * w, h * 0.24, 2.4, 0, Math.PI * 2);
+      ctx.arc(0.22 * w, h * 0.24, 2.6, 0, Math.PI * 2);
       ctx.fill();
-      // sideburn / hair
+      // hair / sideburn
       ctx.fillStyle = HAIR;
-      rr(0.16 * w, h * 0.14, w * 0.12, h * 0.2, 2);
+      rr(0.18 * w, h * 0.12, w * 0.13, h * 0.22, 2);
       ctx.fill();
       // nose
       ctx.fillStyle = C.skin;
       ctx.beginPath();
-      ctx.arc(0.82 * w, h * 0.26, 2.8, 0, Math.PI * 2);
+      ctx.arc(0.8 * w, h * 0.27, 3, 0, Math.PI * 2);
       ctx.fill();
-      // eye
+      // eye (white + pupil)
+      ctx.fillStyle = "#fff";
+      rr(0.58 * w, h * 0.13, w * 0.1, h * 0.1, 2);
+      ctx.fill();
       ctx.fillStyle = "#243042";
-      rr(0.62 * w, h * 0.14, 2.4, 5, 1.2);
+      ctx.beginPath();
+      ctx.arc(0.64 * w, h * 0.19, 1.5, 0, Math.PI * 2);
       ctx.fill();
       // mustache
       ctx.fillStyle = HAIR;
-      rr(0.55 * w, h * 0.28, w * 0.3, h * 0.07, 2);
+      rr(0.52 * w, h * 0.29, w * 0.32, h * 0.08, 2);
       ctx.fill();
 
-      // cap
+      // ---- cap ----
       ctx.fillStyle = C.hat;
-      rr(0.12 * w, h * 0.0, w * 0.62, h * 0.16, 5);
+      rr(0.16 * w, -h * 0.02, w * 0.6, h * 0.16, 6);
       ctx.fill();
-      rr(0.4 * w, h * 0.12, w * 0.55, h * 0.07, 3); // brim
+      rr(0.44 * w, h * 0.1, w * 0.52, h * 0.07, 3); // brim
       ctx.fill();
-      // cap emblem (a small white roundel + the player's color dot)
+      ctx.fillStyle = C.hatDark;
+      rr(0.16 * w, h * 0.1, w * 0.6, h * 0.04, 3); // brim shadow band
+      ctx.fill();
+      // emblem
       ctx.fillStyle = "#fff";
       ctx.beginPath();
-      ctx.arc(0.4 * w, h * 0.08, 3.4, 0, Math.PI * 2);
+      ctx.arc(0.42 * w, h * 0.05, 3.4, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = C.hatDark;
       ctx.beginPath();
-      ctx.arc(0.4 * w, h * 0.08, 1.5, 0, Math.PI * 2);
+      ctx.arc(0.42 * w, h * 0.05, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ---- front arm + hand (over torso) ----
+      capsule(shR, shY, a2x, a2y, armW, C.hat);
+      ctx.fillStyle = C.skin;
+      ctx.beginPath();
+      ctx.arc(a2x, a2y, armW * 0.58, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
+    };
+
+    const drawParticles = () => {
+      const camX = camera.current;
+      for (const pt of particles.current) {
+        const a = Math.max(0, pt.life / pt.maxLife);
+        ctx.fillStyle = `rgba(236,224,200,${a * 0.7})`;
+        ctx.beginPath();
+        ctx.arc(pt.x - camX, pt.y, pt.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
     };
 
     const drawFlag = (lv: LevelState) => {
@@ -1124,6 +1328,33 @@ export function MarioGame() {
         ctx.ellipse(cxv + 22, cyv + 12, 34, 12, 0, 0, Math.PI * 2);
         ctx.fill();
       }
+      // distant mountains (slow parallax)
+      const mtnBase = WORLD_H - TILE * 4 + 18;
+      for (let i = 0; i < 8; i++) {
+        const mx = ((i * 420 - camX * 0.22) % (vw + 700)) - 200;
+        const mh = 90 + (i % 2) * 34;
+        const grdM = ctx.createLinearGradient(0, mtnBase - mh, 0, mtnBase);
+        grdM.addColorStop(0, "#9fc6e8");
+        grdM.addColorStop(1, "#6f9fc4");
+        ctx.fillStyle = grdM;
+        ctx.beginPath();
+        ctx.moveTo(mx - 90, mtnBase);
+        ctx.lineTo(mx, mtnBase - mh);
+        ctx.lineTo(mx + 90, mtnBase);
+        ctx.closePath();
+        ctx.fill();
+        // snow cap
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.beginPath();
+        ctx.moveTo(mx - 18, mtnBase - mh + 18);
+        ctx.lineTo(mx, mtnBase - mh);
+        ctx.lineTo(mx + 18, mtnBase - mh + 18);
+        ctx.lineTo(mx + 8, mtnBase - mh + 16);
+        ctx.lineTo(mx, mtnBase - mh + 22);
+        ctx.lineTo(mx - 8, mtnBase - mh + 16);
+        ctx.closePath();
+        ctx.fill();
+      }
       // hills
       ctx.fillStyle = "#5fb04a";
       for (let i = 0; i < 10; i++) {
@@ -1169,6 +1400,7 @@ export function MarioGame() {
         drawGoomba(g, gsx, g.y);
       }
 
+      drawParticles();
       for (const p of players.current) drawPlayer(p);
     };
 
